@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Birthday Music Finder 🎶</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #191414, #1db954);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background-color: #1db954;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      font-size: 1.1em;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #17a247;
+    }
+
+    #results {
+      width: 100%;
+      max-width: 1000px;
+      margin-top: 30px;
+    }
+
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .section h2 {
+      margin-bottom: 15px;
+      border-bottom: 2px solid rgba(255,255,255,0.2);
+      padding-bottom: 5px;
+    }
+
+    .tracks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    /* Ссылки на треки */
+    .track {
+        text-decoration: none;
+        color: white;
+    }
+    .track:hover {
+        color: #1db954; /* Spotify green при наведении */
+    }
+
+    /* Progress bar */
+    #progress-container {
+        width: 80%;
+        max-width: 500px;
+        height: 20px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 10px;
+        margin: 15px 0;
+        overflow: hidden;
+    }
+    #progress-bar {
+        height: 100%;
+        width: 0%;
+        background: #1db954;
+        transition: width 0.2s;
+    }
+
+    .track img {
+      width: 100%;
+      border-radius: 5px;
+    }
+
+    .track h3 {
+      margin: 10px 0 5px;
+      font-size: 1.1em;
+    }
+
+    .track p {
+      margin: 0;
+      font-size: 0.9em;
+      opacity: 0.8;
+    }
+
+    footer {
+      margin-top: auto;
+      font-size: 0.9em;
+      opacity: 0.7;
+      padding-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Time to Find Out 🎶</h1>
+  <p id="status">Log in to Spotify to discover which songs were released on your birthday</p>
+
+  <button id="spotify-login">Log in with Spotify</button>
+
+    <!-- Контейнер прогресса -->
+    <div id="progress-container" style="display:none;">
+        <div id="progress-bar"></div>   
+    </div>
+
+  <div id="results"></div>
+
+  <footer>
+    &copy; 2025 Gevorg Tsaturyan
+  </footer>
+
+  <script>
+    const CLIENT_ID = "5961de3584bc4ff3a9886db6b2c10e20"; // вставь сюда свой Client ID
+    const REDIRECT_URI = window.location.origin + window.location.pathname.replace("/index.html", "/spotify.html")
+    const SCOPES = [
+      "user-library-read",
+      "playlist-read-private",
+      "playlist-read-collaborative",
+      "user-read-private"
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.substring(1));
+
+    let birthday = params.get("birthday") || hash.get("state");
+    const access_token = hash.get("access_token");
+
+    const statusEl = document.getElementById("status");
+    const loginBtn = document.getElementById("spotify-login");
+    const resultsEl = document.getElementById("results");
+
+    if (!birthday) {
+      alert("No birthday has entered. Returnin to the main page.");
+      window.location.href = "index.html";
+    }
+
+    if (access_token) {
+      window.history.replaceState({}, document.title, window.location.pathname + "?birthday=" + encodeURIComponent(birthday));
+      loginBtn.style.display = "none";
+      statusEl.textContent = "Loading your liked songs and playlists...";
+
+      async function fetchAll(url) {
+        let all = [];
+        while (url) {
+          const res = await fetch(url, { headers: { Authorization: "Bearer " + access_token } });
+          const data = await res.json();
+          if (data.items) all = all.concat(data.items);
+          url = data.next;
+        }
+        return all;
+      }
+
+      async function fetchPlaylistTracks(playlistId) {
+        return fetchAll(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`);
+      }
+
+      async function findBirthdayTracks() {
+        const userRes = await fetch("https://api.spotify.com/v1/me", {
+            headers: { Authorization: "Bearer " + access_token }
+        });
+        const user = await userRes.json();
+
+        statusEl.innerHTML = `Hi, <b>${user.display_name}</b>! 🎉<br>Finding songs realesed at <b>${birthday}</b>...`;
+
+        // 1️⃣ Получаем сохранённые треки
+        const likedTracks = await fetchAll("https://api.spotify.com/v1/me/tracks?limit=50");
+
+        // 2️⃣ Получаем все плейлисты пользователя
+        const playlists = await fetchAll("https://api.spotify.com/v1/me/playlists?limit=50");
+        const ownPlaylists = playlists.filter(pl => pl.owner?.id === user.id);
+
+        console.log(`Всего плейлистов: ${playlists.length}, своих: ${ownPlaylists.length}`);
+
+        const progressContainer = document.getElementById("progress-container");
+        const progressBar = document.getElementById("progress-bar");
+        progressContainer.style.display = ownPlaylists.length ? "block" : "none";
+
+        // 3️⃣ Получаем треки только из своих плейлистов
+        const allPlaylistTracks = [];
+        for (let i = 0; i < ownPlaylists.length; i++) {
+            const pl = ownPlaylists[i];
+            statusEl.textContent = `Searching in your playlist: ${i + 1}/${ownPlaylists.length}: ${pl.name}`;
+
+            const plTracks = await fetchPlaylistTracks(pl.id);
+            allPlaylistTracks.push(...plTracks);
+
+            // Обновляем progress bar
+            const percent = Math.round(((i + 1) / ownPlaylists.length) * 100);
+            progressBar.style.width = percent + "%";
+        }
+
+        // Скрываем progress после загрузки
+        progressContainer.style.display = "none";
+
+        // Объединяем все треки
+        const allTracks = [...likedTracks, ...allPlaylistTracks];
+
+        const bday = new Date(birthday);
+        const bdayYear = bday.getFullYear();
+        const bdayMonth = bday.getMonth() + 1;
+        const bdayDay = bday.getDate();
+
+        const fullMatches = [];
+        const partialMatches = [];
+        const seen = new Set();
+
+        allTracks.forEach(item => {
+            const track = item.track;
+            if (!track || !track.album) return;
+            const release = track.album.release_date;
+            if (!release) return;
+
+            const [year, month, day] = release.split("-").map(Number);
+            if (!month || !day) return;
+
+            const key = track.id;
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            if (month === bdayMonth && day === bdayDay) {
+            if (year === bdayYear) fullMatches.push(track);
+            else partialMatches.push(track);
+            }
+        });
+
+        let html = "";
+
+        if (fullMatches.length) {
+            html += `
+            <div class="section">
+                <h2>🎂 Full Match (${fullMatches.length})</h2>
+                <div class="tracks">${renderTracks(fullMatches)}</div>
+            </div>`;
+        }
+
+        if (partialMatches.length) {
+            html += `
+            <div class="section">
+                <h2>🎉 Match by Day & Month (${partialMatches.length})</h2>
+                <div class="tracks">${renderTracks(partialMatches)}</div>
+            </div>`;
+        }
+
+        if (!html) {
+            html = `<p>No songs were found that match your birthday 😢</p>`;
+        }
+
+        resultsEl.innerHTML = html;
+        statusEl.textContent = "Search complete!";
+}
+
+      function renderTracks(list) {
+        return list
+          .map(track => {
+            const img = track.album.images?.[0]?.url || "";
+            const date = track.album.release_date;
+            const url = track.external_urls?.spotify || "#";
+            return `
+              <a href="${url}" target="_blank" class="track">
+                <img src="${img}" alt="cover">
+                <h3>${track.name}</h3>
+                <p>${track.artists.map(a => a.name).join(", ")}</p>
+                <p>Release Date: ${date}</p>
+              </a>`;
+          })
+          .join("");
+      }
+
+      findBirthdayTracks().catch(err => {
+        console.error(err);
+        statusEl.textContent = "Error loading tracks 😢";
+      });
+
+    } else {
+      loginBtn.addEventListener("click", () => {
+        const authUrl =
+          "https://accounts.spotify.com/authorize" +
+          "?response_type=token" +
+          "&client_id=" + encodeURIComponent(CLIENT_ID) +
+          "&scope=" + encodeURIComponent(SCOPES.join(" ")) +
+          "&redirect_uri=" + encodeURIComponent(REDIRECT_URI) +
+          "&state=" + encodeURIComponent(birthday);
+
+        window.location.href = authUrl;
+      });
+    }
+  </script>
+</body>
+</html>

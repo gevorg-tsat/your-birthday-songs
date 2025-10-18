@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Birthday Music Finder</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #191414, #1db954);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    p {
+      opacity: 0.9;
+      margin-bottom: 30px;
+      font-size: 1.1em;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .date-selects {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    select {
+      padding: 8px 12px;
+      font-size: 1em;
+      border-radius: 5px;
+      border: none;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 12px 25px;
+      font-size: 1.1em;
+      border-radius: 30px;
+      border: none;
+      background-color: #1db954;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #17a247;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.9em;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Find Songs Released on Your Birthday 🎶</h1>
+  <p>Select your date of birth to see which songs match your birthday.</p>
+
+  <form id="birthday-form">
+    <div class="date-selects">
+      <select id="day"></select>
+      <select id="month"></select>
+      <select id="year"></select>
+    </div>
+    <button type="submit">Continue</button>
+  </form>
+
+  <footer>
+    &copy; 2025 Gevorg Tsaturyan
+  </footer>
+
+  <script>
+    const daySelect = document.getElementById("day");
+    const monthSelect = document.getElementById("month");
+    const yearSelect = document.getElementById("year");
+
+    const defaultDate = { day: 10, month: 5, year: 2002 };
+    const currentYear = new Date().getFullYear();
+
+    // Months
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    monthNames.forEach((name, index) => {
+      const opt = document.createElement("option");
+      opt.value = index + 1;
+      opt.textContent = name;
+      monthSelect.appendChild(opt);
+    });
+
+    // Years
+    for(let y = currentYear; y >= 1900; y--) {
+      const opt = document.createElement("option");
+      opt.value = y;
+      opt.textContent = y;
+      yearSelect.appendChild(opt);
+    }
+
+    // Update days based on month/year
+    function updateDays() {
+      const month = parseInt(monthSelect.value);
+      const year = parseInt(yearSelect.value);
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      daySelect.innerHTML = "";
+      for(let d = 1; d <= daysInMonth; d++) {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = d;
+        daySelect.appendChild(opt);
+      }
+
+      if (defaultDate.day <= daysInMonth) {
+        daySelect.value = defaultDate.day;
+      }
+    }
+
+    monthSelect.value = defaultDate.month;
+    yearSelect.value = defaultDate.year;
+    updateDays();
+
+    monthSelect.addEventListener("change", updateDays);
+    yearSelect.addEventListener("change", updateDays);
+
+    // Form submit
+    document.getElementById("birthday-form").addEventListener("submit", function(e){
+      e.preventDefault();
+      const day = String(daySelect.value).padStart(2,'0');
+      const month = String(monthSelect.value).padStart(2,'0');
+      const year = yearSelect.value;
+      window.location.href = `spotify.html?birthday=${year}-${month}-${day}`;
+    });
+  </script>
+
+</body>
+</html>
